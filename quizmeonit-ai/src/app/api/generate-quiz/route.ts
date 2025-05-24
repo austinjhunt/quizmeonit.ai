@@ -15,10 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (questionType !== "Multiple Choice") {
-      return NextResponse.json(
-        { error: "Invalid question type. Only 'Multiple Choice' is supported for now." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid question type. Only 'Multiple Choice' is supported for now." }, { status: 400 });
     }
 
     // Construct the prompt for the Gemini model
@@ -52,9 +49,7 @@ export async function POST(request: NextRequest) {
     `;
 
     // Get the generative model
-    const model = genAI.getGenerativeModel({
-      model: process.env.GOOGLE_GEMINI_MODEL ? process.env.GOOGLE_GEMINI_MODEL : "gemini-1.5-pro",
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const result = await model.generateContent(prompt);
     const response = result.response;
@@ -68,29 +63,22 @@ export async function POST(request: NextRequest) {
       questions = JSON.parse(cleanedText);
     } catch (e) {
       console.error("Failed to parse JSON response from LLM:", text);
-      return NextResponse.json(
-        { error: "Failed to parse quiz data from AI response. The response was not valid JSON.", rawResponse: text },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to parse quiz data from AI response. The response was not valid JSON.", rawResponse: text }, { status: 500 });
     }
 
     // Further validation to ensure the structure is as expected
-    if (
-      !Array.isArray(questions) ||
-      questions.some((q) => !q.questionText || !q.options || !q.correctAnswer || !q.explanation)
-    ) {
-      console.error("Invalid JSON structure received from LLM:", questions);
-      return NextResponse.json(
-        { error: "AI response did not follow the expected JSON structure.", data: questions },
-        { status: 500 },
-      );
+    if (!Array.isArray(questions) || questions.some(q => !q.questionText || !q.options || !q.correctAnswer || !q.explanation)) {
+        console.error("Invalid JSON structure received from LLM:", questions);
+        return NextResponse.json({ error: "AI response did not follow the expected JSON structure.", data: questions }, { status: 500 });
     }
 
+
     return NextResponse.json(questions, { status: 200 });
+
   } catch (error: any) {
     console.error("Error generating quiz:", error);
     if (error.message && error.message.includes("API key not valid")) {
-      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
+        return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
     }
     return NextResponse.json({ error: "An unexpected error occurred.", details: error.message }, { status: 500 });
   }
