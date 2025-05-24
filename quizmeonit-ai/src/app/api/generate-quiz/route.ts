@@ -66,12 +66,19 @@ export async function POST(request: NextRequest) {
       // Sometimes the model might return the JSON wrapped in ```json ... ```
       const cleanedText = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
       questions = JSON.parse(cleanedText);
-    } catch (e) {
-      console.error("Failed to parse JSON response from LLM:", text);
-      return NextResponse.json(
-        { error: "Failed to parse quiz data from AI response. The response was not valid JSON.", rawResponse: text },
-        { status: 500 },
-      );
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        console.error("Failed to parse JSON response from LLM:", text);
+        return NextResponse.json(
+          { error: "Failed to parse quiz data from AI response. The response was not valid JSON.", rawResponse: text },
+          { status: 500 },
+        );
+      } else {
+        return NextResponse.json(
+          { error: "Failed to parse quiz data from AI response. The response was not valid JSON.", rawResponse: text },
+          { status: 500 },
+        );
+      }
     }
 
     // Further validation to ensure the structure is as expected
@@ -87,11 +94,16 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(questions, { status: 200 });
-  } catch (error: any) {
-    console.error("Error generating quiz:", error);
-    if (error.message && error.message.includes("API key not valid")) {
-      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error generating quiz:", error);
+      if (error.message && error.message.includes("API key not valid")) {
+        return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
+      }
+      return NextResponse.json({ error: "An unexpected error occurred.", details: error.message }, { status: 500 });
+    } else {
+      console.error("Error generating quiz:", error);
+      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 401 });
     }
-    return NextResponse.json({ error: "An unexpected error occurred.", details: error.message }, { status: 500 });
   }
 }

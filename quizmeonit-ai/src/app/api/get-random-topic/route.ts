@@ -45,29 +45,36 @@ export async function POST(request: NextRequest) {
       contents: [{ role: "user", parts: [{ text: prompt }] }], // The prompt content
       generationConfig: generationConfig, // The generation configuration
     };
-    // THIS IS THE CORRECT WAY TO PASS generationConfig to generateContent
     const result = await model.generateContent(conf);
-
     const response = result.response;
-    let text = response.text();
-
-    console.log("LLM Raw Response Text before parsing:", text);
-
+    const text = response.text();
     let data;
     try {
       const cleaned = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
       data = JSON.parse(cleaned);
-    } catch (e) {
-      console.error("Failed to parse JSON response from LLM (Error in JSON.parse):", e);
-      return NextResponse.json(
-        {
-          error: "Failed to parse quiz data from AI response. The response was not valid JSON.",
-          rawResponseFromLLM: response.text(),
-          cleanedTextAttemptedToParse: text,
-          parseErrorDetails: (e as Error).message,
-        },
-        { status: 500 },
-      );
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        console.error("Failed to parse JSON response from LLM (Error in JSON.parse):", e);
+        return NextResponse.json(
+          {
+            error: "Failed to parse quiz data from AI response. The response was not valid JSON.",
+            rawResponseFromLLM: response.text(),
+            cleanedTextAttemptedToParse: text,
+            parseErrorDetails: (e as Error).message,
+          },
+          { status: 500 },
+        );
+      } else {
+        return NextResponse.json(
+          {
+            error: "Failed to parse quiz data from AI response. The response was not valid JSON.",
+            rawResponseFromLLM: response.text(),
+            cleanedTextAttemptedToParse: text,
+            parseErrorDetails: (e as Error).message,
+          },
+          { status: 500 },
+        );
+      }
     }
 
     if (!data || !("topic" in data) || typeof data.topic !== "string") {
@@ -82,11 +89,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data, { status: 200 });
-  } catch (error: any) {
-    console.error("Error generating quiz (Top-level catch):", error);
-    if (error.message && error.message.includes("API key not valid")) {
-      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error generating quiz (Top-level catch):", error);
+      if (error.message && error.message.includes("API key not valid")) {
+        return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
+      }
+      return NextResponse.json({ error: "An unexpected error occurred.", details: error.message }, { status: 500 });
+    } else {
+      return NextResponse.json({ error: error }, { status: 401 });
     }
-    return NextResponse.json({ error: "An unexpected error occurred.", details: error.message }, { status: 500 });
   }
 }

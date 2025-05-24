@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GoogleGenerativeAIResponseError, SafetyRating } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 // Initialize the Google Generative AI SDK
@@ -69,26 +69,28 @@ Your response should be directly addressing the user's latest message.
     const aiTextResponse = response.text();
 
     return NextResponse.json({ aiMessage: aiTextResponse }, { status: 200 });
-  } catch (error: any) {
-    console.error("Error in chat-explanation API:", error);
-    if (error.message && error.message.includes("API key not valid")) {
-      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
-    }
-    // Check if it's a GoogleGenerativeAI error (e.g., safety filters)
-    if (error.constructor && error.constructor.name === "GoogleGenerativeAIResponseError") {
-      // @ts-ignore
-      const response = error.response;
-      // @ts-ignore
-      const safetyRatings = response?.promptFeedback?.safetyRatings || [];
-      let message = "The AI could not generate a response due to content restrictions.";
-      if (safetyRatings.length > 0) {
-        message += ` Blocked due to: ${safetyRatings.map((r: any) => r.category).join(", ")}.`;
+  } catch (error: unknown) {
+    if (error instanceof GoogleGenerativeAIResponseError) {
+      console.error("Error in chat-explanation API:", error);
+      if (error.message && error.message.includes("API key not valid")) {
+        return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 500 });
       }
-      return NextResponse.json({ error: message, details: safetyRatings }, { status: 400 });
+      // Check if it's a GoogleGenerativeAI error (e.g., safety filters)
+      if (error.constructor && error.constructor.name === "GoogleGenerativeAIResponseError") {
+        const response = error.response;
+        const safetyRatings = response?.promptFeedback?.safetyRatings || [];
+        let message = "The AI could not generate a response due to content restrictions.";
+        if (safetyRatings.length > 0) {
+          message += ` Blocked due to: ${safetyRatings.map((r: SafetyRating) => r.category).join(", ")}.`;
+        }
+        return NextResponse.json({ error: message, details: safetyRatings }, { status: 400 });
+      }
+      return NextResponse.json(
+        { error: "An unexpected error occurred while processing the chat.", details: error.message },
+        { status: 500 },
+      );
+    } else {
+      return NextResponse.json({ error: "Server configuration error: Invalid API key." }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: "An unexpected error occurred while processing the chat.", details: error.message },
-      { status: 500 },
-    );
   }
 }

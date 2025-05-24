@@ -20,11 +20,12 @@ export default function Home() {
   const [topic, setTopic] = useState<string>("");
   const [randomTopicLoading, setRandomTopicLoading] = useState<boolean>(false);
   const [difficulty, setDifficulty] = useState<string>("Elementary");
-  const [questionType, setQuestionType] = useState<string>("Multiple Choice");
   // Change quizData to hold the new state-extended type
   const [quizData, setQuizData] = useState<QuizQuestionWithState[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const questionType = "Multiple Choice";
 
   const handleGetRandomTopic = async () => {
     try {
@@ -70,9 +71,13 @@ export default function Home() {
         }));
         setQuizData(initialQuizData);
       }
-    } catch (e: any) {
-      console.error("Failed to fetch quiz:", e);
-      setError(e.message || "An unexpected error occurred while fetching the quiz.");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error("Failed to fetch quiz:", e);
+        setError(e.message || "An unexpected error occurred while fetching the quiz.");
+      } else {
+        setError("An unexpected error occurred while fetching the quiz.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -375,7 +380,7 @@ export default function Home() {
           )}
           {quizData && quizData.length === 0 && !isLoading && (
             <p className="text-center text-slate-400 py-10 text-lg">
-              The AI couldn't generate questions for this topic. Please try a different or more specific topic.
+              The AI couldn&apos;t generate questions for this topic. Please try a different or more specific topic.
             </p>
           )}
         </div>
