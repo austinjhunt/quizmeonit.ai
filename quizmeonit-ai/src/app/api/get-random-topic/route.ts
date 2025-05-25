@@ -54,13 +54,14 @@ export async function POST(request: NextRequest) {
       data = JSON.parse(cleaned);
     } catch (error: unknown) {
       if (error instanceof SyntaxError) {
-        console.error("Failed to parse JSON response from LLM (Error in JSON.parse):", e);
+        console.error("Failed to parse JSON response from LLM (Error in JSON.parse):");
+        console.error(error.message);
         return NextResponse.json(
           {
             error: "Failed to parse quiz data from AI response. The response was not valid JSON.",
             rawResponseFromLLM: response.text(),
             cleanedTextAttemptedToParse: text,
-            parseErrorDetails: (e as Error).message,
+            parseErrorDetails: (e: Error) => e.message,
           },
           { status: 500 },
         );
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
             error: "Failed to parse quiz data from AI response. The response was not valid JSON.",
             rawResponseFromLLM: response.text(),
             cleanedTextAttemptedToParse: text,
-            parseErrorDetails: (e as Error).message,
+            parseErrorDetails: (e: Error) => e.message,
           },
           { status: 500 },
         );
